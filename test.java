@@ -8,6 +8,7 @@ import java.awt.GradientPaint;
 import java.awt.RadialGradientPaint;
 import java.awt.Transparency;
 import java.awt.MultipleGradientPaint.CycleMethod;
+import java.awt.Toolkit;
 import java.awt.Graphics2D;
 import java.awt.Stroke;
 import java.awt.BasicStroke;
@@ -85,8 +86,8 @@ class Gravity {
 }
 
 class Boule {
-
-    public static final int size = 180;
+    public static final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+    public static final int size = (int)screenSize.getHeight()/7;
 
     private double x;
     private double y;
@@ -522,7 +523,7 @@ class Fenetre extends JFrame implements KeyListener, MouseListener {
     private Panneau pan = new Panneau();
     private final int sizeX = 1000;
     private final int sizeY = 800;
-    private final int nBoules = 25;
+    private final int nBoules = 30;
     private Game game;
     long time;
     
