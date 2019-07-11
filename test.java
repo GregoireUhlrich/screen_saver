@@ -1,10 +1,16 @@
 import javax.swing.JFrame;
+import java.awt.geom.Point2D;
 import javax.swing.JPanel;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GradientPaint;
+import java.awt.RadialGradientPaint;
+import java.awt.Transparency;
+import java.awt.MultipleGradientPaint.CycleMethod;
 import java.awt.Graphics2D;
+import java.awt.Stroke;
+import java.awt.BasicStroke;
 import java.awt.Event;
 import java.awt.event.*;
 import java.awt.Font;
@@ -12,6 +18,33 @@ import java.util.Random;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.ArrayList;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import javax.imageio.ImageIO;
+
+
+class ScienceHandler {
+    static private boolean enabled = false;
+    static private boolean histo   = true;
+    static final public Color walkingColor = Color.yellow;
+
+    public static void toggle() {
+        enabled = !enabled;
+    }
+
+    public static void toggleHisto() {
+        histo = !histo;
+    }
+
+    public static boolean enabled() {
+        return enabled;
+    }
+
+    public static boolean histo() {
+        return histo;
+    }
+}
 
 class Gravity {
     private static Random rand = new Random();
@@ -53,7 +86,7 @@ class Gravity {
 
 class Boule {
 
-    public static final int size = 150;
+    public static final int size = 180;
 
     private double x;
     private double y;
@@ -62,6 +95,7 @@ class Boule {
     private int nHits = 0;
 
     private Color color;
+    private BufferedImage image;
 
     public Boule(int xmax, int ymax) {
         velocity = 0.3;
@@ -80,18 +114,17 @@ class Boule {
         return nHits;
     }
 
+    public void resetNHits() {
+        nHits = 0;
+    }
+
     public void resetColor() {
         Random rand = new Random();
-        int indexColor = rand.nextInt(6);
-        switch(indexColor) {
-            case 0:  color = Color.blue;    break;
-            case 1:  color = Color.green;   break;
-            case 2:  color = Color.yellow;  break;
-            case 3:  color = Color.orange;  break;
-            case 4:  color = Color.magenta; break;
-            case 5:  color = Color.cyan;    break;
-            default: color = Color.black;
-        }
+        int r = rand.nextInt(75);
+        int g = 50  + rand.nextInt(205);
+        int b = 100 + rand.nextInt(156);
+        color = new Color(r, g, b);
+        setColor();
     }
 
     public double getX() {
@@ -126,12 +159,59 @@ class Boule {
         this.theta = theta;
     }
 
+    public Color getDrawColor() {
+        return new Color(color.getRed(),
+                         color.getGreen(),
+                         color.getBlue(),
+                         80);
+    }
+
     public Color getColor() {
         return color;
     }
 
-    public void setColor(Color t_color) {
-        this.color = t_color;
+
+    public boolean compareColor(Color color) {
+        return color == this.color;
+    }
+
+    public void setColor(Color color) {
+        this.color = color;
+        setColor();
+    }
+
+    private void setColor() {
+        int r = color.getRed();
+        int g = color.getGreen();
+        int b = color.getBlue();
+        image = new BufferedImage(size+2, size+2, Transparency.BITMASK);
+        Graphics2D graph = (Graphics2D)image.getGraphics();
+        Point2D center = new Point2D.Double(size/2,
+                                            size/2);
+        float radius = (float)(Boule.size/2);
+        Point2D focus  = new Point2D.Double(3*size/4,
+                                            size/4);
+        float[] dist = {0.f, 0.2f, 0.5f, 0.85f, 0.95f, 1.0f};
+        Color[] colors = {new Color(255, 255, 255, 90),
+                          new Color(255, 255, 255, 20),
+                          new Color(0, 0, 0, 0),
+                          new Color(r, g, b, 50),
+                          new Color(r, g, b, 120),
+                          new Color(r, g, b, 255)};
+        RadialGradientPaint p = 
+            new RadialGradientPaint(center,
+                                    radius,
+                                    focus,
+                                    dist,
+                                    colors,
+                                    CycleMethod.NO_CYCLE);
+        graph.setPaint(p);
+        graph.fillOval(0, 0, size, size);
+        Stroke oldStroke = graph.getStroke();
+        graph.setStroke(new BasicStroke(2));
+        graph.drawOval(0, 0, size, size);
+        graph.setStroke(oldStroke);
+        graph.dispose();
     }
 
     public void move(double time) {
@@ -159,6 +239,10 @@ class Boule {
         else
             y = ymax-size;
     }
+
+    public void paint(Graphics g) {
+        g.drawImage(image, (int)x, (int)y, null);
+    }
 }
 class Game{
     int nBoules;
@@ -166,6 +250,7 @@ class Game{
     int ymax;
     private ArrayList<Boule> boules;
     Histo histo;
+    BufferedImage image;
 
     public Game(int nBoules, int xmax, int ymax) {
         this.nBoules = nBoules;
@@ -174,8 +259,13 @@ class Game{
         boules = new ArrayList<Boule>();
         for (int i = 0; i != nBoules; ++i)
             boules.add(new Boule(this.xmax, this.ymax));
-        boules.get(0).setColor(Color.red);
+        boules.get(0).setColor(ScienceHandler.walkingColor);
         histo = new Histo(boules);
+        try {
+            image = ImageIO.read(new File("fond4.jpg"));
+        } catch(IOException e) {
+            System.out.println("File not found!");
+        }
     }
 
     private void testBounceX(Boule b) {
@@ -229,12 +319,14 @@ class Game{
 
         double vrx = vx1 - vx2;
         double vry = vy1 - vy2;
+        if (r == 0)
+            return;
         double value = scalar(vrx, vry, rx, ry)/Math.pow(r,2);
         if (value <= 0)
             return;
 
-        if(b1.getColor() == Color.red || b2.getColor() == Color.red) {
-            if (b1.getColor() == Color.red)
+        if(b1.compareColor(ScienceHandler.walkingColor) || b2.compareColor(ScienceHandler.walkingColor)) {
+            if (b1.compareColor(ScienceHandler.walkingColor))
                 b1.hit();
             else
                 b2.hit();
@@ -257,6 +349,8 @@ class Game{
         double theta2_new = Math.atan2(vx2, -vy2);
         b1.setTheta(theta1_new);
         b2.setTheta(theta2_new);
+        if (ratioE == 0)
+            return;
 
         b1.setVelocity(Math.sqrt(1/ratioE*scalar(vx1, vy1, vx1, vy1)));
         b2.setVelocity(Math.sqrt(1/ratioE*scalar(vx2, vy2, vx2, vy2)));
@@ -285,7 +379,9 @@ class Game{
         for (int i = 0; i != boules.size(); ++i) {
             Boule b = boules.get(i);
             b.resetColor();
+            b.resetNHits();
         }
+        boules.get(0).setColor(ScienceHandler.walkingColor);
     }
 
     public void mouseEvent(int x, int y) {
@@ -295,7 +391,7 @@ class Game{
                     Math.pow(x - (b.getX()+Boule.size/2), 2)
                   + Math.pow(y - (b.getY()+Boule.size/2), 2)
                     );
-            if (distance < Boule.size) {
+            if (b.getColor() != ScienceHandler.walkingColor && distance < Boule.size) {
                 b.resetColor();
                 return;
             }
@@ -314,16 +410,22 @@ class Game{
     }
 
     public void paint(Graphics g) {
+        g.drawImage(image, 0, 0, null);
         for (int i = 0; i != boules.size(); ++i) {
             Boule b = boules.get(i);
-            g.setColor(b.getColor());
-            g.fillOval((int)b.getX(), (int)b.getY(), Boule.size, Boule.size);
-            g.setColor(Color.white);
-            g.drawOval((int)b.getX(), (int)b.getY(), Boule.size, Boule.size);
+            b.paint(g);
+            if (ScienceHandler.enabled()) {
+                g.setFont(new Font("TimesRoman", Font.PLAIN, 15));
+                g.setColor(Color.black);
+                g.drawString(""+i,
+                    Boule.size+(int)b.getX()-Boule.size/3-20,
+                    (int)b.getY()+Boule.size/3);
+            }
         }
         int width = 500;
         int height = 300;
-        histo.paint(g, xmax-width, ymax-height-50, width, height);
+        if (ScienceHandler.histo())
+            histo.paint(g, xmax-width, ymax-height-50, width, height);
     }
 }
 
@@ -337,43 +439,65 @@ class Histo {
     public void paint(Graphics g, int x, int y, int width, int height) {
         g.setColor(Color.black);
         // g.fillRect(x, y, width, height);
-        g.setColor(Color.white);
         g.drawLine(x+1, y, x+1, y+height);
         g.drawLine(x, y+height-1, x+width, y+height-1);
-        g.setColor(Color.red);
+        g.setColor(ScienceHandler.walkingColor);
         int widthBin = (width - 3) / boules.size();
         int posX = 2;
         int nmax = 0;
-        for (int i = 0; i != boules.size(); ++i) 
-            if (boules.get(i).getNHits() > nmax)
-                nmax = boules.get(i).getNHits();
-        int stepY = (int)((height / nmax)*0.8);
+        int nmin = boules.get(0).getNHits();
+        double nmean = 0;
+        for (int i = 0; i != boules.size(); ++i)  {
+            int nHits = boules.get(i).getNHits();
+            nmean += nHits;
+            if (nHits > nmax)
+                nmax = nHits;
+            if (nHits < nmin)
+                nmin = nHits;
+        }
+        nmean /= 1*boules.size();
+
+        double stepY;
+        if (nmax > 0)
+            stepY = (height / (1.*nmax))*0.8;
+        else 
+            stepY = 0;
         int offsetX = x;
         int offsetY = y + height;
         for (int i = 0; i != boules.size(); ++i) {
             int n = boules.get(i).getNHits();
-
-            // g.drawLine(offsetX+posX, offsetY,
-            //            offsetX+posX, offsetY-n*stepY);
-
-            // g.drawLine(offsetX+posX, offsetY-n*stepY,
-            //            offsetX+posX+widthBin, offsetY-n*stepY);
-
-            // g.drawLine(offsetX+posX+widthBin, offsetY-n*stepY,
-            //            offsetX+posX+widthBin, offsetY);
-
-            g.setColor(Color.red);
-            g.fillRect(offsetX+posX, offsetY-n*stepY,
-                       widthBin, n*stepY);
-            g.setColor(Color.white);
-            g.drawRect(offsetX+posX, offsetY-n*stepY,
-                       widthBin, n*stepY);
+            int sizeY = (int)(n*stepY);
+            g.setColor(ScienceHandler.walkingColor);
+            g.fillRect(offsetX+posX, offsetY-sizeY,
+                       widthBin, sizeY);
+            g.setColor(Color.black);
+            g.drawRect(offsetX+posX, offsetY-sizeY,
+                       widthBin, sizeY);
+            g.setFont(new Font("TimesRoman", Font.PLAIN, 13));
+            if (ScienceHandler.enabled())
+                g.drawString(""+i,
+                    offsetX+posX+3,
+                    offsetY-5);
 
             posX += widthBin;
         }
         g.setColor(Color.white);
         g.setFont(new Font("TimesRoman", Font.PLAIN, 20));
-        g.drawString("Max = " + nmax, x + width/2, y+10);
+        g.drawString("Std/Mean = " + (double)((int)(getStd()*100))/100, x + width/8, y+10);
+        g.drawString("Max = " + nmax, x + 2*width/3, y+10);
+        g.drawString("Min = " + nmin, x + 2*width/3, y+30);
+        g.drawString("Mean = " + nmean, x + 2*width/3, y+50);
+    }
+
+    public double getStd() {
+        double nmean = 0;
+        for (int i = 0; i != boules.size(); ++i)
+            nmean += boules.get(i).getNHits();
+        nmean = nmean / boules.size();
+        double std_mean = 0;
+        for (int i = 0; i != boules.size(); ++i)
+            std_mean += Math.pow(boules.get(i).getNHits() - nmean, 2);
+        return Math.sqrt(std_mean)/nmean;
     }
 }
 
@@ -424,6 +548,10 @@ class Fenetre extends JFrame implements KeyListener, MouseListener {
         char c = e.getKeyChar();
         if (c == 'r')
             game.resetColor();
+        else if (c == 't')
+            ScienceHandler.toggle();
+        else if (c == 'h')
+            ScienceHandler.toggleHisto();
     }
 
     @Override
