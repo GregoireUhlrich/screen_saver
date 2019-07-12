@@ -1,11 +1,20 @@
 import javax.swing.JFrame;
 import java.awt.geom.Point2D;
 import javax.swing.JPanel;
-import java.awt.GraphicsDevice.WindowTranslucency;
-import static java.awt.GraphicsDevice.WindowTranslucency.*;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.GradientPaint;
+import java.awt.RadialGradientPaint;
+import java.awt.Transparency;
 import java.awt.MultipleGradientPaint.CycleMethod;
+import java.awt.Toolkit;
+import java.awt.Graphics2D;
+import java.awt.Stroke;
+import java.awt.BasicStroke;
+import java.awt.Event;
 import java.awt.event.*;
-import java.awt.*;
+import java.awt.Font;
 import java.util.Random;
 import java.util.List;
 import java.util.ListIterator;
@@ -14,13 +23,11 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import javax.imageio.ImageIO;
-import java.awt.RenderingHints;
-import java.awt.AlphaComposite;
 
 
 class ScienceHandler {
     static private boolean enabled = false;
-    static private boolean histo   = false;
+    static private boolean histo   = true;
     static final public Color walkingColor = Color.yellow;
     static BufferedImage imageWalkingColor;
     static private boolean imageSet = false;
@@ -46,15 +53,14 @@ class ScienceHandler {
         int r = color.getRed();
         int g = color.getGreen();
         int b = color.getBlue();
-        int size = 180;
         imageWalkingColor = new BufferedImage(
-                size+2, size+2, Transparency.BITMASK);
+                Boule.size+2, Boule.size+2, Transparency.BITMASK);
         Graphics2D graph = (Graphics2D)imageWalkingColor.getGraphics();
-        Point2D center = new Point2D.Double(size/2,
-                                            size/2);
-        float radius = (float)(size/2);
-        Point2D focus  = new Point2D.Double(3*size/4,
-                                            size/4);
+        Point2D center = new Point2D.Double(Boule.size/2,
+                                            Boule.size/2);
+        float radius = (float)(Boule.size/2);
+        Point2D focus  = new Point2D.Double(3*Boule.size/4,
+                                            Boule.size/4);
         float[] dist = {0.f, 0.2f, 0.5f, 0.85f, 0.95f, 1.0f};
         Color[] colors = {new Color(255, 255, 255, 110),
                           new Color(255, 255, 255, 40),
@@ -70,10 +76,10 @@ class ScienceHandler {
                                     colors,
                                     CycleMethod.NO_CYCLE);
         graph.setPaint(p);
-        graph.fillOval(0, 0, size, size);
+        graph.fillOval(0, 0, Boule.size, Boule.size);
         Stroke oldStroke = graph.getStroke();
         graph.setStroke(new BasicStroke(2));
-        graph.drawOval(0, 0, size, size);
+        graph.drawOval(0, 0, Boule.size, Boule.size);
         graph.setStroke(oldStroke);
         graph.dispose();
     }
@@ -87,47 +93,32 @@ class ScienceHandler {
 
 class Gravity {
     private static Random rand = new Random();
-    private static double acceleration = 0.00015;
+    private static double acceleration = 0.00008;
     private static int time = 0;
     private static int sign = 1;
-    public static int xmax = 1920;
-    public static int ymax = 1080;
-
-    static void accelerate() {
-        acceleration *= 1.1;
-    }
-
-    static void deccelerate() {
-        acceleration *= 0.9;
-    }
 
     static void applyGravity(Boule b, double time) {
         Gravity.time += time;
-        //if(Gravity.time > 10_000_000) {
-        //    sign *= -1;
-        //    Gravity.time = 0;
-        //}
+        if(Gravity.time > 1_000_000) {
+            sign *= -1;
+            Gravity.time = 0;
+        }
         double v = b.getVelocity();
         double btheta = b.getTheta();
         double vbx = v*Math.sin(btheta);
         double vby = -v*Math.cos(btheta);
-        int x = (int)b.getX();
-        int y = (int)b.getY();
-        double dv = sign*acceleration*time;
-        if (x < xmax/9) 
-            vby += dv;
-        else if (x > 4*xmax/9 && x < 5*xmax/9)
-            vby -= dv;
-        else if (x > 8*xmax/9)
-            vby += dv;
-
-        int signY = 1;
-        if (x > xmax/2)
-            signY *= -1;
-        if (y < ymax/5) 
-            vbx -= dv*signY;
-        else if (y > 4*ymax/5)
-            vbx += dv*signY;
+        if (b.getY() < 2*Boule.size) {
+            vbx += sign*acceleration*time;
+        }
+        else if (b.getY() > 5*Boule.size) {
+            vbx -= sign*acceleration*time;
+        }
+        if (b.getX() < 2*Boule.size) {
+            vby -= sign*acceleration*time;
+        }
+        else if (b.getX() > 7*Boule.size) {
+            vby += sign*acceleration*time;
+        }
         else
             return;
 
@@ -140,7 +131,7 @@ class Gravity {
 
 class Boule {
     public static final Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-    private final int size;
+    public static final int size = (int)screenSize.getHeight()/25;
 
     private double x;
     private double y;
@@ -153,18 +144,11 @@ class Boule {
 
     public Boule(int xmax, int ymax) {
         velocity = 0.3;
-        int min = (int)screenSize.getHeight()/30;
-        int max = (int)screenSize.getHeight()/15;
         Random rand = new Random();
-        size = rand.nextInt(max-min)+min;
         x = rand.nextInt(xmax-size);
         y = rand.nextInt(ymax-size);
         theta = Math.random()*2*Math.PI-Math.PI;
         resetColor();
-    }
-
-    public int size() {
-        return size;
     }
 
     public void hit() {
@@ -238,7 +222,6 @@ class Boule {
 
     public void setColor(Color color) {
         this.color = color;
-        setColor();
     }
 
     private void setColor() {
@@ -249,7 +232,7 @@ class Boule {
         Graphics2D graph = (Graphics2D)image.getGraphics();
         Point2D center = new Point2D.Double(size/2,
                                             size/2);
-        float radius = (float)(size/2);
+        float radius = (float)(Boule.size/2);
         Point2D focus  = new Point2D.Double(3*size/4,
                                             size/4);
         float[] dist = {0.f, 0.2f, 0.5f, 0.85f, 0.95f, 1.0f};
@@ -267,10 +250,10 @@ class Boule {
                                     colors,
                                     CycleMethod.NO_CYCLE);
         graph.setPaint(p);
-        graph.fillOval(1, 1, size, size);
+        graph.fillOval(0, 0, size, size);
         Stroke oldStroke = graph.getStroke();
         graph.setStroke(new BasicStroke(2));
-        graph.drawOval(1, 1, size, size);
+        graph.drawOval(0, 0, size, size);
         graph.setStroke(oldStroke);
         graph.dispose();
     }
@@ -302,10 +285,10 @@ class Boule {
     }
 
     public void paint(Graphics g) {
-        if (false && color == Color.yellow)
+        if (color == Color.yellow)
             ScienceHandler.paint(g, (int)x, (int)y);
         else
-            g.drawImage(image, (int)x-1, (int)y-1, null);
+            g.drawImage(image, (int)x, (int)y, null);
     }
 }
 class Game{
@@ -316,7 +299,6 @@ class Game{
     private ArrayList<Boule> boules;
     Histo histo;
     BufferedImage image;
-    BufferedImage bg;
 
     public Game(int nBoules, int xmax, int ymax) {
         this.nBoules = nBoules;
@@ -332,11 +314,6 @@ class Game{
         } catch(IOException e) {
             System.out.println("File not found!");
         }
-        try {
-            bg = getBackgroundImage();
-        } catch(AWTException e) {
-            bg = new BufferedImage(1,1,0);
-        }
     }
 
     private void testBounceX(Boule b) {
@@ -345,7 +322,7 @@ class Game{
         double pi = Math.PI;
         if (x < 0) 
             b.bounceX(xmax);
-        else if (x > xmax - b.size())
+        else if (x > xmax - Boule.size)
             b.bounceX(xmax);
     }
 
@@ -355,14 +332,13 @@ class Game{
         double pi = Math.PI;
         if (y < 0)  
             b.bounceY(ymax);
-        else if (y > ymax - b.size()) 
+        else if (y > ymax - Boule.size) 
             b.bounceY(ymax);
     }
 
     private double distance(Boule b1, Boule b2) {
-        return Math.sqrt(
-                Math.pow(b1.getX() - b2.getX() + (b1.size()-b2.size())/2, 2)
-              + Math.pow(b1.getY() - b2.getY() + (b1.size()-b2.size())/2, 2));
+        return Math.sqrt(Math.pow(b1.getX() - b2.getX(), 2)
+                       + Math.pow(b1.getY() - b2.getY(), 2));
     }
 
     private double scalar(double x1, double y1, double x2, double y2) {
@@ -433,7 +409,7 @@ class Game{
             Boule b1 = boules.get(i);
             for (int j = i+1; j != boules.size(); ++j)  {
                 Boule b2 = boules.get(j);
-                if (distance(b1, b2) <= (b1.size()+b2.size())/2.)
+                if (distance(b1, b2) < Boule.size)
                     collision(b1, b2);
             }
         }
@@ -461,10 +437,10 @@ class Game{
         for (int i = 0; i != boules.size(); ++i) {
             Boule b = boules.get(i);
             double distance = Math.sqrt(
-                    Math.pow(x - (b.getX()+b.size()/2), 2)
-                  + Math.pow(y - (b.getY()+b.size()/2), 2)
+                    Math.pow(x - (b.getX()+Boule.size/2), 2)
+                  + Math.pow(y - (b.getY()+Boule.size/2), 2)
                     );
-            if (b.getColor() != ScienceHandler.walkingColor && distance < b.size()) {
+            if (b.getColor() != ScienceHandler.walkingColor && distance < Boule.size) {
                 b.resetColor();
                 return;
             }
@@ -482,19 +458,8 @@ class Game{
         testCollisions();
     }
 
-    static public BufferedImage getBackgroundImage() throws AWTException
-    {
-        Robot rbt = new Robot();
-        Toolkit tk = Toolkit.getDefaultToolkit();
-        Dimension dim = tk.getScreenSize();
-        BufferedImage background = rbt.createScreenCapture(
-                new Rectangle(0, 1, (int) dim.getWidth(), (int) dim.getHeight()));
-        return background;
-    }
-
     public void paint(Graphics g) {
-        //g.drawImage(bg, 0, 0, null);
-        g.drawImage(image, 0, 0, null);
+        //g.drawImage(image, 0, 0, null);
         for (int i = 0; i != boules.size(); ++i) {
             Boule b = boules.get(i);
             b.paint(g);
@@ -502,15 +467,14 @@ class Game{
                 g.setFont(new Font("TimesRoman", Font.PLAIN, 15));
                 g.setColor(Color.black);
                 g.drawString(""+i,
-                    b.size()+(int)b.getX()-b.size()/3-20,
-                    (int)b.getY()+b.size()/3);
+                    Boule.size+(int)b.getX()-Boule.size/3-20,
+                    (int)b.getY()+Boule.size/3);
             }
         }
         int width = 500;
         int height = 300;
         if (ScienceHandler.histo())
             histo.paint(g, xmax-width, ymax-height-50, width, height);
-        g.dispose();
     }
 }
 
@@ -586,36 +550,19 @@ class Histo {
     }
 }
 
-
 @SuppressWarnings("serial") 
 class Panneau extends JPanel {
     Game game;
-    private float panelAlfa;
-    private float childrenAlfa;
-
-    public Panneau() {
-        //this.panelAlfa = panelAlfa;
-        //this.childrenAlfa = childrenAlfa;
-        setOpaque(false);
-    }
-
-    @Override
-    public void paintComponent(Graphics g) {
-        //Paint p =
-        //    new Paint(0.0f, 0.0f, new Color(0,0,0,0), true);
-        //        0.0f, getHeight(), new Color(0,0,0,0), true);
-        //g2d.setPaint(p);
-        //g2d.setColor(new Color(0,0,0,0));
-        //g2d.fillRect(0, 0, getWidth(), getHeight());
-        //setBackground(getBackground());
-        //g.fillRect(0, 0, getWidth(), getHeight());
-        //super.paintComponent(g);
-        super.paintComponent(g);
-        game.paint(g);
-    }
 
     public void setGame(Game g) {
         game = g;
+    }
+
+    public void paintComponent(Graphics g){
+        setBackground(new Color(0,0,0,0));
+        g.setColor(Color.black);
+        g.fillRect(0, 0, this.getWidth(), this.getHeight());
+        game.paint(g);
     }
 }
 
@@ -628,7 +575,6 @@ class Fenetre extends JFrame implements KeyListener, MouseListener {
     private final int nBoules = 200;
     private Game game;
     long time;
-    boolean running = true;
     
     @Override
     public void mouseClicked(MouseEvent e) {
@@ -656,12 +602,6 @@ class Fenetre extends JFrame implements KeyListener, MouseListener {
             ScienceHandler.toggle();
         else if (c == 'h')
             ScienceHandler.toggleHisto();
-        else if (c == 's')
-            System.exit(0);
-        else if (c == '+')
-            Gravity.accelerate();
-        else if (c == '-')
-            Gravity.deccelerate();
     }
 
     @Override
@@ -677,33 +617,23 @@ class Fenetre extends JFrame implements KeyListener, MouseListener {
     public Fenetre(){        
         game = new Game(nBoules, sizeX, sizeY);
         pan.setGame(game);
+        pan.setBackground(new Color(0,0,0,0));
         this.setTitle("Animation");
         this.setSize(sizeX, sizeY);
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setLocationRelativeTo(null);
-        setUndecorated(true);
-        this.add(pan);
+        this.setContentPane(pan);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
-         // Determine what the GraphicsDevice can support.
-        GraphicsDevice vc;
-	
-	//Initialize the vc with the Screen Device
-        GraphicsEnvironment ge=GraphicsEnvironment.getLocalGraphicsEnvironment();
-        vc=ge.getDefaultScreenDevice();
-        setResizable(false);
-        vc.setFullScreenWindow(this);
-
         this.setVisible(true);
         addKeyListener(this);
         addMouseListener(this);
         requestFocus();
         time = System.currentTimeMillis();
         go();
-        this.setVisible(false);
     }
 
     private void go(){
-        while (running) {
+        while (true) {
             long current = System.currentTimeMillis();
             Dimension dim = getSize();
             game.setXmax(dim.width);
@@ -719,7 +649,6 @@ class Fenetre extends JFrame implements KeyListener, MouseListener {
             }
         }
     }
-
 }
 
 public class test {
