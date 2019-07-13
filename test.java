@@ -245,8 +245,11 @@ class Boule {
         int r = color.getRed();
         int g = color.getGreen();
         int b = color.getBlue();
-        image = new BufferedImage(size+2, size+2, Transparency.BITMASK);
+        int border = 2;
+        image = new BufferedImage(size+2*border, size+2*border, Transparency.BITMASK);
         Graphics2D graph = (Graphics2D)image.getGraphics();
+        graph.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                               RenderingHints.VALUE_ANTIALIAS_ON);
         Point2D center = new Point2D.Double(size/2,
                                             size/2);
         float radius = (float)(size/2);
@@ -267,10 +270,10 @@ class Boule {
                                     colors,
                                     CycleMethod.NO_CYCLE);
         graph.setPaint(p);
-        graph.fillOval(1, 1, size, size);
+        graph.fillOval(border, border, size, size);
         Stroke oldStroke = graph.getStroke();
-        graph.setStroke(new BasicStroke(2));
-        graph.drawOval(1, 1, size, size);
+        graph.setStroke(new BasicStroke(border));
+        graph.drawOval(border, border, size, size);
         graph.setStroke(oldStroke);
         graph.dispose();
     }
@@ -495,6 +498,8 @@ class Game{
     public void paint(Graphics g) {
         //g.drawImage(bg, 0, 0, null);
         g.drawImage(image, 0, 0, null);
+        g.setColor(new Color(0,0,0,32));
+        g.fillRect(0, 0, xmax, ymax);
         for (int i = 0; i != boules.size(); ++i) {
             Boule b = boules.get(i);
             b.paint(g);
